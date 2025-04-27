@@ -40,6 +40,8 @@
 # WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
+#
+# Modified by ConzZah / 2025
 
 SCRIPT_NAME="install-driver.sh"
 SCRIPT_VERSION="20250317"
@@ -167,15 +169,31 @@ SMEM=$(LC_ALL=C free | awk '/Mem:/ { print $2 }')
 sproc=$(nproc)
 # avoid Out of Memory condition in low-RAM systems by limiting core usage
 if [ "$sproc" -gt 1 ]; then
-	if [ "$SMEM" -lt 1400000 ]
+	if [ "$SMEM" -lt "1400000" ]
 	then
 		sproc=2
 	fi
-	if [ "$SMEM" -lt 700000 ]
+	if [ "$SMEM" -lt "700000" ]
 	then
 		sproc=1
 	fi
 fi
+
+
+### ConzZah / 2025 ###
+## check if swap exists and we have at least 512M
+## should both system memory and swap be not enough, create a temporary swap file
+SWAP=$(LC_ALL=C free | awk '/Swap:/ { print $2 }')
+if [ "$SWAP" -lt "524288" ] && [ "$SMEM" -lt "700000" ]; then
+	tmpswap="/var/cache/swap/.tmp.swap"
+	mkdir -p "/var/cache/swap/"
+	echo; echo "NOT ENOUGH SWAP, CREATING TEMPORARY 512M SWAPFILE.."; echo 
+	dd if=/dev/zero of="$tmpswap" bs=1M count=512
+	chmod 0600 "$tmpswap"
+	mkswap "$tmpswap" >/dev/null
+	swapon "$tmpswap" >/dev/null
+fi
+
 
 # display number of in-use processing units / total processing units
 echo "Processing units: ${sproc}/$(nproc) (in-use/total)"
@@ -239,10 +257,6 @@ iw reg get | grep country
 #lsusb
 #rfkill list all
 #dkms status
-
-
-echo
-
 
 # check to ensure bc is installed
 if ! command -v bc >/dev/null 2>&1; then
@@ -522,6 +536,11 @@ else
 	echo "Unable to run $ rfkill unblock wlan"
 fi
 
+# should $tmpswap be set (and exist), clean it up:
+if [ -n "$tmpswap" ] && [ -f "$tmpswap" ]; then
+	swapoff "$tmpswap"
+	rm -f "$tmpswap"
+fi
 
 # if NoPrompt is not used, ask user some questions
 if [ $NO_PROMPT -ne 1 ]; then
