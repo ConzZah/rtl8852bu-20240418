@@ -151,7 +151,8 @@ fi
 echo "${SCRIPT_NAME} v${SCRIPT_VERSION}"
 
 # display distro info
-lsb_release -id | grep D
+# note from ConzZah: lsb_release is not portable.. (example: alpine)
+command -v lsb_release >/dev/null 2>&1 && lsb_release -id | grep D
 
 # display kernel version
 echo "Kernel version: ${KVER}"
