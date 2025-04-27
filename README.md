@@ -2,6 +2,8 @@
 
 ## Linux Driver for USB WiFi Adapters that are based on the RTL8832BU and RTL8852BU Chipsets
 
+### NOTE: THIS FORK ALLOWS THE DRIVER TO COMPILE WITHOUT ISSUES ON RASPI ZERO 2 W AND ABOVE
+
 - v1.19.14-127 - 20240418 plus updates from the Linux community
 - Realtek development of this driver is ongoing.
 
