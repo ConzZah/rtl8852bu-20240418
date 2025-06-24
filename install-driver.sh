@@ -275,6 +275,9 @@ if ! command -v make >/dev/null 2>&1; then
 	exit 1
 fi
 
+# ensure directory is clean of files from manual compilation
+make clean >/dev/null 2>&1
+
 # check to see if the correct header files are installed
 # - problem with fedora 40 reported
 if [ ! -d "/lib/modules/$(uname -r)/build" ]; then
@@ -306,7 +309,6 @@ if [ -f "${MODDESTDIR}${MODULE_NAME}.ko" ]; then
 	rm -f /etc/modprobe.d/${OPTIONS_FILE}
 	echo "Deleting source files from /usr/src/${DRV_NAME}-${DRV_VERSION}"
 	rm -rf /usr/src/${DRV_NAME}-${DRV_VERSION}
-	make clean >/dev/null 2>&1
 fi
 
 
@@ -322,7 +324,6 @@ if [ -f "${MODDESTDIR}rtl${MODULE_NAME}.ko" ]; then
 	rm -f /etc/modprobe.d/${OPTIONS_FILE}
 	echo "Deleting source files from /usr/src/${DRV_NAME}-${DRV_VERSION}"
 	rm -rf /usr/src/${DRV_NAME}-${DRV_VERSION}
-	make clean >/dev/null 2>&1
 fi
 
 
@@ -338,7 +339,6 @@ if [ -f "/usr/lib/modules/${KVER}/kernel/drivers/net/wireless/${DRV_NAME}/${MODU
 	rm -f /etc/modprobe.d/${OPTIONS_FILE}
 	echo "Deleting source files from /usr/src/${DRV_NAME}-${DRV_VERSION}"
 	rm -rf /usr/src/${DRV_NAME}-${DRV_VERSION}
-	make clean >/dev/null 2>&1
 fi
 
 
@@ -374,6 +374,7 @@ echo
 
 #echo "Updating driver."
 #git pull
+
 echo "Starting installation:"
 echo "Copying ${OPTIONS_FILE} to /etc/modprobe.d"
 cp -f ${OPTIONS_FILE} /etc/modprobe.d
@@ -382,8 +383,6 @@ cp -f ${OPTIONS_FILE} /etc/modprobe.d
 # determine if dkms is installed and run the appropriate installation routines
 if ! command -v dkms >/dev/null 2>&1; then
 	echo "The non-dkms installation routines are in use."
-
-	make clean >/dev/null 2>&1
 
 	make -j"${sproc}"
 	RESULT=$?
@@ -416,7 +415,6 @@ if ! command -v dkms >/dev/null 2>&1; then
 	fi
 	
 	if [ "$RESULT" = "0" ]; then
-        	make clean >/dev/null 2>&1
 		echo "The driver was installed successfully."
 		echo
 	else

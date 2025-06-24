@@ -1,5 +1,90 @@
 ### FAQ
 
+Question: My USB WiFi adapter is showing up as a CDROM or Flash drive
+instead of a WiFi adapter. What is the problem?
+
+Answer: Your Realtek USB WiFi adapter showing up as a CDROM or Flash
+drive (often with ID 0bda:1a2b) instead of functioning as a network
+adapter (such as ID 35bc:0102 or similar) is likely due to a
+"mode-switching" issue. Some USB WiFi adapters include onboard memory
+that contains drivers or installation software for Windows. When plugged
+into a system for the first time, they initially present themselves as a
+virtual CD-ROM or Flash driver containing the drivers.
+
+In Linux, the `usb_modeswitch` utility generally handles this issue but
+there are situations where it does not work as expected.
+
+ Your options:
+
+1. Send your adapter back and get one that is single-state (no storage
+onboard). If that is not possible then:
+
+2. You need to check if the VID/PID for your adapter is in the 
+usb_modeswitch data file. See the following link for more information:
+
+https://github.com/morrownr/USB-WiFi/blob/main/home/How_to_Modeswitch.md
+
+If you have exhausted recommendations from the information in item 2,
+then:
+
+3. You may be able to make the adapter work in wifi mode with the 
+following method:
+
+How to add kernel parameters with GRUB in Ubuntu:
+
+Note: This method may vary by distro so if you are not using Ubuntu,
+please consult the documentation for your distro.
+
+Once your device has booted, use a text editor to open the following 
+file:
+
+$ sudo nano /etc/default/grub
+
+Add parameters to GRUB_CMDLINE_LINUX while keeping the following in
+mind:
+
+Enter parameters inside the double-quotes
+
+Leave a space before each new parameter
+
+Don’t add space round = and other punctuations for each key-value
+
+Don’t add line breaks
+
+If your original line looks like:
+
+GRUB_CMDLINE_LINUX="quiet"
+
+Then your updated line should read like:
+
+GRUB_CMDLINE_LINUX="quiet usb-storage.quirks=0bda:1a2b:i"
+
+Note: If the storage VId/PID (ID) i not 0bda:1a2b, you will need to
+change 0bda:1a2b to the storage mode VID/PID of your adapter.
+
+Save and close the editor.
+
+Update GRUB with its new configuration:
+
+$ sudo update-grub
+
+$ sudo reboot
+
+Note: If your distro does not use grub, the RasPiOS is an example, you
+will need to read your distro docs to see how to do the above.
+
+Example for Raspberry Pi OS:
+
+$ sudo nano /boot/firmware/cmdline.txt
+
+add the following to the end of the `console=` line:
+
+usb-storage.quirks=0bda:1a2b:i
+
+Save, close the editor and reboot.
+
+-----
+
 Secure Boot Information
 
 Question: The driver installation script completed successfully and the
@@ -127,7 +212,7 @@ https://github.com/morrownr/USB-WiFi
 
 Question: Will you put volunteers to work?
 
-Answer: Yes. Post a message in `Issues` or `Discussions` if interested.
+Answer: Yes. Post a message in `Issues` if interested.
 
 -----
 
@@ -139,60 +224,10 @@ Answer: This [article](https://null-byte.wonderhowto.com/forum/wifi-hacking-atta
 
 Question: Can you provide additional information about monitor mode?
 
-Answer: I have a repo that is setup to help with monitor mode:
+Answer: Realtek out-of-kernel drivers generally do not support monitor mode very well
+so I recommend you buy an adapter with a Mediatek chip:
 
-https://github.com/morrownr/Monitor_Mode
-
-Work to improve monitor mode is ongoing with this driver. Your reports of
-success or failure are needed. If you have yet to buy an adapter to use with
-monitor mode, there are adapters available that are known to work very well
-with monitor mode. My recommendation for those looking to buy an adapter for
-monitor mode is to buy adapters based on the following chipsets: mt7921au,
-mt7612u, mt7610u, rtl8821cu, and rtl8812bu. My specific recommendations for
-adapters in order of preference currently are:
-
-ALFA AWUS036ACHM - long range - in-kernel driver
-
-ALFA AWUS036ACM - in-kernel driver
-
-ALFA AWUS036ACU - in-kernel driver (as of kernel 6.2) and [out-of-kernel driver](https://github.com/morrownr/8821cu)
-
-To ask questions, go to [USB-WiFi](https://github.com/morrownr/USB-WiFi)
-and post in `Discussions` or `Issues`.
-
------
-
-Question: How do I forget a saved WiFi network on a Raspberry Pi?
-
-Note: This answer is for the Raspberry Pi OS without Network Manager active.
-
-Step 1: Edit `wpa_supplicant.conf`
-
-```
-sudo ${EDITOR} /etc/wpa_supplicant/wpa_supplicant.conf
-```
-
-Note: Replace ${EDITOR} with the name of the text editor you wish to use.
-
-#### Step 2: Delete the relevant WiFi network block (including the '`network=`' and opening/closing braces).
-
-#### Step 3: Save the file.
-
-#### Step 4: Reboot
-
------
-
-Question: How do I disable the onboard WiFi in a Raspberry Pi?
-
-Note: This answer is for the Raspberry Pi OS.
-
-Answer:
-
-Add the following line to `/boot/config.txt`
-
-```
-dtoverlay=disable-wifi
-```
+https://github.com/morrownr/USB-WiFi
 
 -----
 

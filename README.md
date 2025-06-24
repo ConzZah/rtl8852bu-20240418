@@ -72,7 +72,7 @@ Note: Additional CPU architectures may work but have not been tested.
 ### Compatible Kernels
 
 - Kernels: 5.10 - 6.6 (Realtek)
-- Kernels: 6.7  - 6.14 (community support)
+- Kernels: 6.7  - 6.15 (community support)
 
 Note: Kernels earlier than 5.10 may work but have not been tested.
 
@@ -648,7 +648,7 @@ The driver directory can be deleted after running this script.
 #### Step 2: Move to the driver directory
 
 ```
-cd ~/src/rtl8852bu
+cd ~/src/rtl8852bu-20240418
 ```
 
 #### Step 3: Run the removal script
