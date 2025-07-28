@@ -392,7 +392,7 @@ if ! command -v dkms >/dev/null 2>&1; then
 		echo "Please report this error."
 		echo "Please copy and post the following items into the problem report."
 		echo "    -all screen output from install-driver.sh"
-		echo "    -the contents of make.log as mentioned 3 lines above"
+		echo "    -the contents of make.log as mentioned a few lines above"
 		echo "You should run the following before reattempting installation."
 		echo "$ sudo ./uninstall-driver.sh"
 		exit $RESULT
