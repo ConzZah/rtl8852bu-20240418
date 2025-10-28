@@ -30,7 +30,7 @@
 #
 # $ shellcheck install-driver.sh
 #
-# Copyright(c) 2025 Nick Morrow
+# Copyright(c) 2025 Nick Morrow & ConzZah
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of version 2 of the GNU General Public License as
@@ -41,15 +41,21 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
-# Modified by ConzZah / 2025
+# // Modified by ConzZah // 2025-10-28-04:22 //
+# // Note from ConzZah: I shall only claim Copyright over the portions i wrote //
+
+DEPS="bc iw make gcc"
 
 SCRIPT_NAME="install-driver.sh"
+
 SCRIPT_VERSION="20250317"
 
 MODULE_NAME="8852bu"
 
 DRV_NAME="rtl8852bu"
+
 DRV_VERSION="1.19.14-127"
+
 DRV_DIR="$(pwd)"
 
 OPTIONS_FILE="${MODULE_NAME}.conf"
@@ -80,17 +86,20 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # support for the NoPrompt option allows non-interactive use of this script
-NO_PROMPT=0
+NO_PROMPT=""
 # get the script options
 while [ $# -gt 0 ]
 do
 	case $1 in
 		NoPrompt)
 			NO_PROMPT=1 ;;
+		-q)
+			NO_PROMPT=1 ;;
+
 		*h|*help|*)
 			echo "Syntax $0 <NoPrompt>"
-			echo "       NoPrompt - noninteractive mode"
-			echo "       -h|--help - Show help"
+			echo "       -q|NoPrompt - noninteractive mode"
+			echo "       -h|--help   - Show help"
 			exit 1
 			;;
 	esac
@@ -111,29 +120,43 @@ if ! command -v "${TEXT_EDITOR}" >/dev/null 2>&1; then
 	exit 1
 fi
 
-# check to ensure gcc is installed
-if ! command -v gcc >/dev/null 2>&1; then
-	echo "A required package is not installed."
-	echo "Please install the following package: gcc"
-	echo "Once the package is installed, please run \"sudo ./${SCRIPT_NAME}\""
-	exit 1
-fi
+### install deps 4 alpine // ConzZah // 2025 ###
+[ -f "/etc/alpine-release" ] && doso="doas" && {
+echo; echo 'ALPINE DETECTED, INSTALLING DEPENDENCIES...'; echo
+# find out what kernel type we're running
+ktype="$(echo "$KVER"| rev| cut -c -3| rev)"
+# update system and install deps
+doas apk upgrade -U
+setup-devd udev
+apk add "$DEPS" linux-"$ktype"-dev linux-headers
+apk add usb-modeswitch --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing/
+# add udev rules for tp-link archer tx20u nano (if detected)
+lsusb| grep '35bc:0108' >/dev/null && {
+udev_rules='ATTR{idVendor}=="0bda", ATTR{idProduct}=="1a2b", RUN+="/usr/sbin/usb_modeswitch -K -v 0bda -p 1a2b"'
+udev_rules_path="/etc/udev/rules.d/tp-link-archer-tx20u-nano.rules" ;}
+[ ! -f "$udev_rules_path" ] && \
+{ echo "# tp-link archer tx20u nano:"| tee -a "$udev_rules_path" >/dev/null
+echo "$udev_rules"| tee -a "$udev_rules_path" >/dev/null
+}
+}
 
 # ensure /usr/sbin is in the PATH so iw can be found
 if ! echo "$PATH" | grep -qw sbin; then
         export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 fi
 
-# check to ensure iw is installed
-if ! command -v iw >/dev/null 2>&1; then
-	echo "A required package is not installed."
-	echo "Please install the following package: iw"
-	echo "Once the package is installed, please run \"sudo ./${SCRIPT_NAME}\""
-	exit 1
+### dependency checks // ConzZah // 2025 ###
+command -v sudo >/dev/null && doso="sudo"
+for dep in $DEPS; do
+if ! command -v "$dep" >/dev/null 2>&1; then
+echo "ERROR: \"$dep\" is not installed."
+echo "pls install  \"$dep\" & run \"$doso ./${SCRIPT_NAME}\" again."
+exit 1
 fi
+done
 
 # if NoPrompt is not used, display notice then ask if ready to continue
-if [ $NO_PROMPT -ne 1 ]; then
+if [ -z $NO_PROMPT ]; then
 	echo "-----------------------------------------------------------------"
 	echo "Please copy and post all displayed lines when reporting an issue!"
 	echo "-----------------------------------------------------------------"
@@ -158,7 +181,7 @@ command -v lsb_release >/dev/null 2>&1 && lsb_release -id | grep D
 echo "Kernel version: ${KVER}"
 
 # display kernel parameters
-sed 's/root=[^ ]*//;s/[ ]\+/, /g;s/^BOOT_IMAGE=[^ ]*/Parameters:/' /proc/cmdline
+echo "Parameters: $(cut -d ' ' -f 3- /proc/cmdline)"
 
 # display kernel architecture
 echo "Kernel ARCH: ${KARCH}"
@@ -167,7 +190,8 @@ echo "Kernel ARCH: ${KARCH}"
 #echo ": ${GARCH} (architecture to send to gcc)"
 
 SMEM=$(LC_ALL=C free | awk '/Mem:/ { print $2 }')
-sproc=$(nproc)
+sproc=$(grep processor < /proc/cpuinfo | grep -c) # <-- more portable than nproc
+
 # avoid Out of Memory condition in low-RAM systems by limiting core usage
 if [ "$sproc" -gt 1 ]; then
 	if [ "$SMEM" -lt "1400000" ]
@@ -180,8 +204,7 @@ if [ "$sproc" -gt 1 ]; then
 	fi
 fi
 
-
-### ConzZah / 2025 ###
+### tmpswap // ConzZah // 2025 ###
 ## check if swap exists and we have at least 512M
 ## should both system memory and swap be not enough, create a temporary swap file
 SWAP=$(LC_ALL=C free | awk '/Swap:/ { print $2 }')
@@ -195,16 +218,15 @@ if [ "$SWAP" -lt "524288" ] && [ "$SMEM" -lt "700000" ]; then
 	swapon "$tmpswap" >/dev/null
 fi
 
-
 # display number of in-use processing units / total processing units
-echo "Processing units: ${sproc}/$(nproc) (in-use/total)"
+echo "Processing units: ${sproc}/$(grep processor < /proc/cpuinfo | grep -c) (in-use/total)"
 
 # display total system memory
 echo "Memory: ${SMEM}"
 
 # display gcc version
 gcc_ver=$(gcc --version | grep -i gcc)
-echo "gcc: ""${gcc_ver}"
+echo "gcc: ${gcc_ver}"
 
 # display version of gcc used to compile the kernel
 #gcc_ver_used_to_compile_the_kernel=$(cat /proc/version | sed 's/^.*gcc/gcc/' | sed 's/\s.*$//')
@@ -215,7 +237,7 @@ echo "gcc: ""${gcc_ver}"
 # display dkms version if installed
 if command -v dkms >/dev/null 2>&1; then
 	dkms_ver=$(dkms --version)
-	echo "dkms: ""${dkms_ver}"
+	echo "dkms: ${dkms_ver}"
 fi
 
 # display Secure Boot status
@@ -259,28 +281,12 @@ iw reg get | grep country
 #rfkill list all
 #dkms status
 
-# check to ensure bc is installed
-if ! command -v bc >/dev/null 2>&1; then
-	echo "A required package is not installed."
-	echo "Please install the following package: bc"
-	echo "Once the package is installed, please run \"sudo ./${SCRIPT_NAME}\""
-	exit 1
-fi
-
-# check to ensure make is installed
-if ! command -v make >/dev/null 2>&1; then
-	echo "A required package is not installed."
-	echo "Please install the following package: make"
-	echo "Once the package is installed, please run \"sudo ./${SCRIPT_NAME}\""
-	exit 1
-fi
-
 # ensure directory is clean of files from manual compilation
 make clean >/dev/null 2>&1
 
 # check to see if the correct header files are installed
 # - problem with fedora 40 reported
-if [ ! -d "/lib/modules/$(uname -r)/build" ]; then
+if [ ! -d "/lib/modules/${KVER}/build" ]; then
 	echo "Your kernel header files aren't properly installed."
 	echo "Please consult your distro documentation or user support forums."
 	echo "Once the header files are properly installed, please run \"sudo ./${SCRIPT_NAME}\""
@@ -365,20 +371,11 @@ if command -v dkms >/dev/null 2>&1; then
 	fi
 fi
 
-
-echo "Finished checking for and uninstalling previously installed drivers."
-
-
-echo
-
-
-#echo "Updating driver."
-#git pull
-
+echo "Finished checking for and uninstalling previously installed driver."; echo
+echo "updating driver.."; echo; git pull && : || echo "failed to update driver." && exit 1
 echo "Starting installation:"
 echo "Copying ${OPTIONS_FILE} to /etc/modprobe.d"
 cp -f ${OPTIONS_FILE} /etc/modprobe.d
-
 
 # determine if dkms is installed and run the appropriate installation routines
 if ! command -v dkms >/dev/null 2>&1; then
