@@ -41,8 +41,11 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
-# // Modified by ConzZah // 2025-10-28-04:22 //
+# // Modified by ConzZah // 2025-10-31-22:47 //
 # // Note from ConzZah: I shall only claim Copyright over the portions i wrote //
+
+command -v sudo >/dev/null && doso="sudo"
+[ -z "$doso" ] && command -v doas >/dev/null && doso="doas" 
 
 DEPS="bc iw make gcc"
 
@@ -61,14 +64,8 @@ DRV_DIR="$(pwd)"
 OPTIONS_FILE="${MODULE_NAME}.conf"
 
 KARCH="$(uname -m)"
-#if [ -z "${KARCH+1}" ]; then
-#	KARCH="$(uname -m)"
-#fi
 
 KVER="$(uname -r)"
-#if [ -z "${KVER+1}" ]; then
-#	KVER="$(uname -r)"
-#fi
 
 MODDESTDIR="/lib/modules/${KVER}/kernel/drivers/net/wireless/"
 
@@ -120,41 +117,40 @@ if ! command -v "${TEXT_EDITOR}" >/dev/null 2>&1; then
 	exit 1
 fi
 
-### install deps 4 alpine // ConzZah // 2025 ###
-[ -f "/etc/alpine-release" ] && doso="doas" && {
-echo; echo 'ALPINE DETECTED, INSTALLING DEPENDENCIES...'; echo
-# find out what kernel type we're running
-ktype="$(echo "$KVER"| rev| cut -c -3| rev)"
-# update system and install deps
-doas apk upgrade -U
-setup-devd udev
-apk add "$DEPS" linux-"$ktype"-dev linux-headers
-apk add usb-modeswitch --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing/
-# add udev rules for tp-link archer tx20u nano (if detected)
-lsusb| grep '35bc:0108' >/dev/null && {
-udev_rules='ATTR{idVendor}=="0bda", ATTR{idProduct}=="1a2b", RUN+="/usr/sbin/usb_modeswitch -K -v 0bda -p 1a2b"'
-udev_rules_path="/etc/udev/rules.d/tp-link-archer-tx20u-nano.rules" ;}
-[ ! -f "$udev_rules_path" ] && \
-{ echo "# tp-link archer tx20u nano:"| tee -a "$udev_rules_path" >/dev/null
-echo "$udev_rules"| tee -a "$udev_rules_path" >/dev/null
-}
-}
-
 # ensure /usr/sbin is in the PATH so iw can be found
 if ! echo "$PATH" | grep -qw sbin; then
         export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 fi
 
-### dependency checks // ConzZah // 2025 ###
-command -v sudo >/dev/null && doso="sudo"
+### install deps 4 alpine // ConzZah // 2025 ###
+[ -f "/etc/alpine-release" ] && alp="1" && {
+echo; echo 'ALPINE DETECTED, INSTALLING DEPENDENCIES...'; echo
+# find out what kernel type we're running
+ktype="$(echo "$KVER"| rev| cut -c -3| rev)"
+# install deps
+setup-devd udev
+apk add linux-"$ktype"-dev linux-headers
 for dep in $DEPS; do
+if ! command -v "$dep" >/dev/null 2>&1; then apk add "$dep"; fi; done
+! command -v usb_modeswitch >/dev/null 2>&1 && \
+apk add usb-modeswitch --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing/
+# add udev rules for tp-link archer tx20u nano (if detected)
+lsusb| grep -q '35bc:0108' && {
+udev_rules='ATTR{idVendor}=="0bda", ATTR{idProduct}=="1a2b", RUN+="/usr/sbin/usb_modeswitch -K -v 0bda -p 1a2b"'
+udev_rules_path="/etc/udev/rules.d/tp-link-archer-tx20u-nano.rules"
+[ ! -f "$udev_rules_path" ] && \
+echo "# tp-link archer tx20u nano:"| tee -a "$udev_rules_path" >/dev/null
+echo "$udev_rules"| tee -a "$udev_rules_path" >/dev/null ;}
+}
+
+### dependency checks // ConzZah // 2025 ###
+[ -z "$alp" ] && { for dep in $DEPS; do
 if ! command -v "$dep" >/dev/null 2>&1; then
 echo "ERROR: \"$dep\" is not installed."
 echo "pls install  \"$dep\" & run \"$doso ./${SCRIPT_NAME}\" again."
 exit 1
 fi
-done
-
+done ;}
 # if NoPrompt is not used, display notice then ask if ready to continue
 if [ -z $NO_PROMPT ]; then
 	echo "-----------------------------------------------------------------"
@@ -190,11 +186,12 @@ echo "Kernel ARCH: ${KARCH}"
 #echo ": ${GARCH} (architecture to send to gcc)"
 
 SMEM=$(LC_ALL=C free | awk '/Mem:/ { print $2 }')
-sproc=$(grep processor < /proc/cpuinfo | grep -c) # <-- more portable than nproc
+sproc=$(grep -c processor < /proc/cpuinfo) # <-- more portable than nproc
 
 # avoid Out of Memory condition in low-RAM systems by limiting core usage
+# increased to 2GB because i've witnessed freezes on some of my machines.
 if [ "$sproc" -gt 1 ]; then
-	if [ "$SMEM" -lt "1400000" ]
+	if [ "$SMEM" -lt "1940000" ]
 	then
 		sproc=2
 	fi
@@ -219,7 +216,7 @@ if [ "$SWAP" -lt "524288" ] && [ "$SMEM" -lt "700000" ]; then
 fi
 
 # display number of in-use processing units / total processing units
-echo "Processing units: ${sproc}/$(grep processor < /proc/cpuinfo | grep -c) (in-use/total)"
+echo "Processing units: ${sproc}/$(grep -c processor < /proc/cpuinfo) (in-use/total)"
 
 # display total system memory
 echo "Memory: ${SMEM}"
@@ -372,7 +369,7 @@ if command -v dkms >/dev/null 2>&1; then
 fi
 
 echo "Finished checking for and uninstalling previously installed driver."; echo
-echo "updating driver.."; echo; git pull && : || echo "failed to update driver." && exit 1
+echo "updating driver.."; echo; ! git pull && echo "failed to update driver." && exit 1
 echo "Starting installation:"
 echo "Copying ${OPTIONS_FILE} to /etc/modprobe.d"
 cp -f ${OPTIONS_FILE} /etc/modprobe.d
