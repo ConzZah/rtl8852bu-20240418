@@ -1,3 +1,4 @@
+
 #!/bin/sh
 
 # Purpose: Install Realtek out-of-kernel USB WiFi adapter drivers.
@@ -41,7 +42,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
-# // Modified by ConzZah // 2025-10-31-22:47 //
+# // Modified by ConzZah // 2025-10-31-23:12 //
 # // Note from ConzZah: I shall only claim Copyright over the portions i wrote //
 
 command -v sudo >/dev/null && doso="sudo"
@@ -134,14 +135,15 @@ for dep in $DEPS; do
 if ! command -v "$dep" >/dev/null 2>&1; then apk add "$dep"; fi; done
 ! command -v usb_modeswitch >/dev/null 2>&1 && \
 apk add usb-modeswitch --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing/
+}
+
 # add udev rules for tp-link archer tx20u nano (if detected)
-lsusb| grep -q '35bc:0108' && {
+lsusb| grep -q '0bda:1a2b' && {
 udev_rules='ATTR{idVendor}=="0bda", ATTR{idProduct}=="1a2b", RUN+="/usr/sbin/usb_modeswitch -K -v 0bda -p 1a2b"'
 udev_rules_path="/etc/udev/rules.d/tp-link-archer-tx20u-nano.rules"
 [ ! -f "$udev_rules_path" ] && \
 echo "# tp-link archer tx20u nano:"| tee -a "$udev_rules_path" >/dev/null
 echo "$udev_rules"| tee -a "$udev_rules_path" >/dev/null ;}
-}
 
 ### dependency checks // ConzZah // 2025 ###
 [ -z "$alp" ] && { for dep in $DEPS; do
@@ -151,6 +153,7 @@ echo "pls install  \"$dep\" & run \"$doso ./${SCRIPT_NAME}\" again."
 exit 1
 fi
 done ;}
+
 # if NoPrompt is not used, display notice then ask if ready to continue
 if [ -z $NO_PROMPT ]; then
 	echo "-----------------------------------------------------------------"
